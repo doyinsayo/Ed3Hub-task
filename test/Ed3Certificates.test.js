@@ -41,4 +41,21 @@ describe("Ed3Certificates", function () {
       ).to.be.revertedWithCustomError(certificates, "AccessControlUnauthorizedAccount");
     });
   });
+
+  describe("Certificates", function () {
+    it("should store correct metadata URI when minted", async function () {
+      const { certificates, minter, student } = await loadFixture(deployContractsFixture);
+      const courseCode = "WEB3-101";
+      const tokenURI = "ipfs://QmTestCID";
+
+      await certificates.connect(minter).mintCertificate(
+        student.address,
+        courseCode,
+        tokenURI
+      );
+
+      expect(await certificates.tokenURI(1)).to.equal(tokenURI);
+      expect(await certificates.ownerOf(1)).to.equal(student.address);
+    });
+  });
 });

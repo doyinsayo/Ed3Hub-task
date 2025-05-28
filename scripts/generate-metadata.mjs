@@ -1,17 +1,19 @@
-import { create } from 'ipfs-http-client';
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
+import FormData from 'form-data';
 import { fileURLToPath } from 'url';
 
-// __dirname replacement in ESM
+// __dirname workaround for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Connect to local IPFS node
-const ipfs = create({ host: 'localhost', port: 5001, protocol: 'http' });
+// 🔐 Pinata API credentials (replace with your actual values)
+const PINATA_API_KEY = 'bd87756e8e6be1456336';
+const PINATA_API_SECRET = '6aa300332ede37b7f2be92cae506aeaff4a3964c98aa5639d5efb7088c466e49';
 
 async function main() {
-  // Sample course data
+  // 1. Sample course data
   const courseData = {
     title: "Web3 Fundamentals",
     studentAddress: "0x123...abc",
@@ -19,11 +21,11 @@ async function main() {
     completionDate: new Date().toISOString().split('T')[0]
   };
 
-  // 1. Generate metadata JSON
+  // 2. Generate metadata JSON
   const metadata = {
     name: `${courseData.title} Completion Certificate`,
     description: `Awarded to ${courseData.studentAddress}`,
-    image: "ipfs://Qm.../certificate.png", // Replace with actual CID
+    image: "ipfs://Qm.../certificate.png", // Replace with actual image CID when available
     attributes: [
       { trait_type: "Course", value: courseData.title },
       { trait_type: "Student", value: courseData.studentAddress },
@@ -32,15 +34,28 @@ async function main() {
     ]
   };
 
-  // 2. Save to file
+  // 3. Save to file
   const metadataPath = path.join(__dirname, 'metadata.json');
-  fs.writeFileSync(metadataPath, JSON.stringify(metadata));
+  fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
-  // 3. Upload to IPFS
-  const fileBuffer = fs.readFileSync(metadataPath);
-  const result = await ipfs.add(fileBuffer);
-  console.log(`Metadata CID: ${result.cid.toString()}`);
-  console.log(`Token URI: ipfs://${result.cid.toString()}`);
+  // 4. Upload to Pinata
+  const form = new FormData();
+  form.append('file', fs.createReadStream(metadataPath));
+
+  const res = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', form, {
+    maxContentLength: Infinity,
+    headers: {
+      ...form.getHeaders(),
+      pinata_api_key: PINATA_API_KEY,
+      pinata_secret_api_key: PINATA_API_SECRET
+    }
+  });
+
+  const cid = res.data.IpfsHash;
+  console.log(`✅ Metadata uploaded to IPFS via Pinata`);
+  console.log(`CID: ${cid}`);
+  console.log(`Token URI: ipfs://${cid}`);
+  console.log(`Gateway URL: https://gateway.pinata.cloud/ipfs/${cid}`);
 }
 
 main().catch(console.error);
